@@ -54,6 +54,7 @@ int main(int argc, char *argv[]) {
 	nbytes = sendto_(sd, msg, strlen(msg),0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
 }
 
+/* Reads a file into active memory. */
 char*
 read_file_into_memery(char* filename) {
 	char full_file[MAX_FILE_SIZE]; //todo - dynamic memory?
