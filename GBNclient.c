@@ -16,6 +16,9 @@
 #include <unistd.h>
 #include "sendto_.h"
 
+#define MAX_FILE_SIZE 20000
+#define MAX_FILE_CHUNK_SIZE 10
+
 int main(int argc, char *argv[]) {
     
 	/* check command line args. */
@@ -49,6 +52,35 @@ int main(int argc, char *argv[]) {
 	int nbytes;
 	char msg[] = "send this";
 	nbytes = sendto_(sd, msg, strlen(msg),0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
-	printf("%d bytes recieved.", nbytes);
+}
+
+char*
+read_file_into_memery(char* filename) {
+	char full_file[MAX_FILE_SIZE]; //todo - dynamic memory?
+	char chunk[MAX_FILE_CHUNK_SIZE];
+	FILE *file_pointer;
+
+	bzero(full_file, sizeof(full_file));
+	bzero(chunk, sizeof(chunk));
+
+
+	file_pointer = fopen(filename, "r");
+	if (file_pointer == NULL)
+	{
+	  fprintf(stderr, "Cannot open input file %s! Sucks to be you nerd...\n", filename);
+	  exit(EXIT_FAILURE);
+	}
+	
+	int count=0;
+	while(!feof(file_pointer))
+	{
+		fread(chunk, MAX_FILE_CHUNK_SIZE, 1, file_pointer);
+		//append chunk to file
+		strncat(full_file, chunk, MAX_FILE_CHUNK_SIZE);
+		bzero(chunk, MAX_FILE_CHUNK_SIZE);
+		count++;
+	}
+	fclose(file_pointer);
+	return full_file;
 }
 

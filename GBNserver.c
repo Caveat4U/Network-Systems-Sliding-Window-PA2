@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "sendto_.h"
-#include "swp.h"
+//#include "swp.h"
 
 #define timeout 50 // 50ms timeout
 #define window_size 8 //TODO - make this less arbitrary
