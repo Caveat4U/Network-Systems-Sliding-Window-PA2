@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
 
 	/* socket creation */
 	int sd;
-	if((sd = socket(**** CALL SOCKET() HERE TO CREATE A UDP SOCKET ****))<0)
+	if((sd = socket(AF_INET, SOCK_DGRAM, 0))<0)
 	{
 		printf("%s: cannot create socket \n",argv[0]);
 		exit(1);
@@ -48,5 +48,7 @@ int main(int argc, char *argv[]) {
 	/* Call sendto_ in order to simulate dropped packets */
 	int nbytes;
 	char msg[] = "send this";
-	nbytes = sendto_(sd,msg, strlen(msg),0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+	nbytes = sendto_(sd, msg, strlen(msg),0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+	printf("%d bytes recieved.", nbytes);
 }
+

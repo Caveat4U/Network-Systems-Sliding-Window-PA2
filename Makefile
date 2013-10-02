@@ -1,10 +1,10 @@
 all: clean server client
 
 server: GBNserver.c
-	gcc -Wall udp_server.c -o server
+	gcc -Wall GBNserver.c -o server #-DDEBUG
 
 client: GBNclient.c
-	gcc -Wall udp_client.c -o client
+	gcc -Wall GBNclient.c -o client
 
 clean:
 	rm -f server client

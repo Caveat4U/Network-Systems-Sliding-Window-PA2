@@ -103,8 +103,7 @@ static bool
 swpInWindow(SwpSeqno seqno, SwpSeqno min, SwpSeqno max)
 {
 	SwpSeqno pos, maxpos;
-	pos
-	= seqno - min;
+	pos = seqno - min;
 	maxpos = max - min + 1;
 	/* pos *should* be in range [0..MAX) */
 	/* maxpos is in range [0..MAX] */
