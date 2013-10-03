@@ -14,27 +14,14 @@
 #include <time.h>
 #include "sendto_.h"
 //#include "swp.h"
+#include "packet.h"
 
-#define timeout 50 // 50ms timeout
-#define window_size 8 //TODO - make this less arbitrary
+#define TIMEOUT 50 // 50ms timeout
+#define WINDOW_SIZE 3 //TODO - make this less arbitrary
 
 
 int main(int argc, char *argv[]) {
 
-	/*#ifdef DEBUG
-		argv = (char**)malloc(6*sizeof(char*));
-		//argv[0] = //program name
-		argv[1] = (char*)malloc(4*sizeof(int));
-		argv[1] = 2310; //server port
-		argv[2] = (char*)malloc(1*sizeof(int));
-		argv[2] = 1; //error rate
-		argv[3] = (char*)malloc(1*sizeof(int));
-		argv[3] = 1; //random seed
-		argv[4] = (char*)malloc(9*sizeof(char));
-		argv[4] = "file.txt";
-		argv[5] = (char*)malloc(8*sizeof(char));
-		argv[5] = "log.txt";
-	#endif*/
 	/* check command line args. */
 	if(argc<6) {
 		printf("usage : %s <server_port> <error rate> <random seed> <send_file> <send_log> \n", argv[0]);
@@ -70,13 +57,33 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in cliAddr;
 	unsigned int cliLen;
 	int nbytes;
-	char recvmsg[100];
-	bzero(recvmsg,sizeof(recvmsg));
+	struct Packet recvmsg;
+	struct Packet ACK;
+	strcpy(ACK.chunk, "ACK");
+	//bzero(recvmsg, sizeof(recvmsg));
 	cliLen = sizeof(cliAddr);
-	nbytes = recvfrom(sd, &recvmsg, sizeof (recvmsg), 0, (struct sockaddr *) &cliAddr, &cliLen);
-	printf("%d bytes recieved.\n", nbytes);
-
+	//nbytes = recvfrom(sd, &recvmsg, sizeof (recvmsg), 0, (struct sockaddr *) &cliAddr, &cliLen);
+	fd_set rdfs; 
+	struct timeval tv;
+	FD_SET(sd, &rdfs);
+	
+	/*Wait up to TIMEOUT ms TODO - check if usec is microsec and convert */
+	tv.tv_sec = 0;
+	tv.tv_usec = TIMEOUT;
+	printf("The value of select() is %d\n", select(1, &rdfs, 0, 0, &tv));
+	while(1) {
+		if(select(1, &rdfs, 0, 0, &tv) > 0) {
+			nbytes = recvfrom(sd, &recvmsg, sizeof(recvmsg), 0, (struct sockaddr *) &cliAddr, &cliLen);
+			if(nbytes > 0) { 
+				// Send ACK
+				ACK.seq_num = recvmesg.seq_num;
+				nbytes = sendto_(sd, (void*)ACK, sizeof(ACK),0, (struct sockaddr *) &cliAddr, sizeof(cliLen));
+				break; 
+			}
+		}		
+	}
+	printf("%s recieved.\n", recvmsg.chunk);
 	/* Respond using sendto_ in order to simulate dropped packets */
-	char response[] = "respond this";
-	nbytes = sendto_(sd, response, strlen(response),0, (struct sockaddr *) &cliAddr, sizeof(cliLen));
+	//char response[] = "respond this";
+	
 }

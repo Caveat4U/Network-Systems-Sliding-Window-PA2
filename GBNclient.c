@@ -14,10 +14,11 @@
 #include <sys/time.h> /* select() */
 #include <signal.h>
 #include <unistd.h>
+#include <errno.h>
 #include "sendto_.h"
+#include "packet.h"
 
-#define MAX_FILE_SIZE 20000
-#define MAX_FILE_CHUNK_SIZE 10
+
 
 int main(int argc, char *argv[]) {
     
@@ -51,7 +52,25 @@ int main(int argc, char *argv[]) {
 	/* Call sendto_ in order to simulate dropped packets */
 	int nbytes;
 	char msg[] = "send this";
-	nbytes = sendto_(sd, msg, strlen(msg),0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+	struct Packet this_packet;
+	strcpy(this_packet.chunk, "send this");
+	nbytes = sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+	alarm(TIMEOUT/1000);
+	
+	if(errno == SIGALRM) {
+		// alarm went off - resubmit packet
+		nbytes = sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+		alarm(TIMEOUT/1000);
+	}
+	
+	//while(select(1, &rdfs, 0, 0, &tv) == 0) {
+	nbytes = recvfrom(sd, &ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, &cliLen);
+	if(nbytes > 0) { 
+		// ACK received, moved the window.
+		printf("ACK Recieved.\n");
+		break; 
+	}
+	
 }
 
 /* Reads a file into active memory. */
