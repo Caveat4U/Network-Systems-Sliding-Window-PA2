@@ -1,3 +1,5 @@
+// I AM A POSSIBLE PSEUDOCODE IMPLEMENTATION FROM THE BOOK 
+// IGNORE ME!!!!
 
 typedef u_char SwpSeqno;
 

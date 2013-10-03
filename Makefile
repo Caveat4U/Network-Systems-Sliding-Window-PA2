@@ -8,3 +8,8 @@ client: GBNclient.c
 
 clean:
 	rm -f server client
+
+# Using the -DDEBUG flag allows you to use the
+# #ifdefn DEBUG
+#  Do some arbitrary debug code
+# #endif

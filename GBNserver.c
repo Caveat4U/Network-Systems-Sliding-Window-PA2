@@ -1,6 +1,5 @@
 /* GBNserver.c */
-/* This is a sample UDP server/receiver program */
-/* This code will not work unless modified. */
+/* Coauthor-ed by Chris Sterling and Chris Fichman */
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -13,12 +12,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "sendto_.h"
-//#include "swp.h"
 #include "packet.h"
-
-#define TIMEOUT 50 // 50ms timeout
-#define WINDOW_SIZE 3 //TODO - make this less arbitrary
-
 
 int main(int argc, char *argv[]) {
 
@@ -72,15 +66,13 @@ int main(int argc, char *argv[]) {
 	tv.tv_usec = TIMEOUT;
 	printf("The value of select() is %d\n", select(1, &rdfs, 0, 0, &tv));
 	while(1) {
-		if(select(1, &rdfs, 0, 0, &tv) > 0) {
-			nbytes = recvfrom(sd, &recvmsg, sizeof(recvmsg), 0, (struct sockaddr *) &cliAddr, &cliLen);
-			if(nbytes > 0) { 
-				// Send ACK
-				ACK.seq_num = recvmesg.seq_num;
-				nbytes = sendto_(sd, (void*)ACK, sizeof(ACK),0, (struct sockaddr *) &cliAddr, sizeof(cliLen));
-				break; 
-			}
-		}		
+		nbytes = recvfrom(sd, &recvmsg, sizeof(recvmsg), 0, (struct sockaddr *) &cliAddr, &cliLen);
+		if(nbytes > 0) { 
+			// Send ACK
+			ACK.seq_num = recvmsg.seq_num;
+			nbytes = sendto_(sd, (void*)&ACK, sizeof(ACK),0, (struct sockaddr *) &cliAddr, sizeof(cliLen));
+			break; 
+		}
 	}
 	printf("%s recieved.\n", recvmsg.chunk);
 	/* Respond using sendto_ in order to simulate dropped packets */

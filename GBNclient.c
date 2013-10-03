@@ -1,6 +1,5 @@
 /* GBNclient.c */
-/* This is a sample UDP client/sender using "sendto_.h" to simulate dropped packets.  */
-/* This code will not work unless modified. */
+/* Coauthor-ed by Chris Sterling and Chris Fichman */
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -31,16 +30,32 @@ int main(int argc, char *argv[]) {
 
 	/* Note: you must initialize the network library first before calling sendto_().  The arguments are the <errorrate> and <random seed> */
 	init_net_lib(atof(argv[3]), atoi(argv[4]));
+	fd_set rdfs; 
+	struct timeval tv;
+	struct Packet ACK;
+	
 	printf("error rate : %f\n",atof(argv[3]));
 
 	/* socket creation */
-	int sd;
-	if((sd = socket(AF_INET, SOCK_DGRAM, 0))<0)
-	{
-		printf("%s: cannot create socket \n",argv[0]);
-		exit(1);
+	int sockets[WINDOW_SIZE];
+	int i;
+	for(i = 0; i < WINDOW_SIZE; i++) {
+		if((sockets[i] = socket(AF_INET, SOCK_DGRAM, 0))<0)
+		{
+			printf("%s: cannot create socket \n",argv[0]);
+			exit(1);
+		}
+		FD_SET(sockets[i], &rdfs);
 	}
+	
 
+	
+	
+	
+	/*Wait up to TIMEOUT ms TODO - check if usec is microsec and convert */
+	tv.tv_sec = 0;
+	tv.tv_usec = TIMEOUT;
+	
 	/* get server IP address (input must be IP address, not DNS name) */
 	struct sockaddr_in remoteServAddr;
 	bzero(&remoteServAddr,sizeof(remoteServAddr));               //zero the struct
@@ -51,6 +66,7 @@ int main(int argc, char *argv[]) {
 
 	/* Call sendto_ in order to simulate dropped packets */
 	int nbytes;
+	int sd =0; // TODO - REMOVE ME
 	char msg[] = "send this";
 	struct Packet this_packet;
 	strcpy(this_packet.chunk, "send this");
@@ -64,16 +80,33 @@ int main(int argc, char *argv[]) {
 	}
 	
 	//while(select(1, &rdfs, 0, 0, &tv) == 0) {
-	nbytes = recvfrom(sd, &ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, &cliLen);
+	nbytes = recvfrom(sd, &ACK, sizeof(ACK), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
 	if(nbytes > 0) { 
-		// ACK received, moved the window.
+		// ACK received.
 		printf("ACK Recieved.\n");
-		break; 
+		ACK.chunk = 0; // DO WE NEED THIS?
+		// Maybe we should be checking to see if the ACK.chunk == "ACK"???
+		
+		// TODO - move the window 
 	}
-	
+/*
+ * while(1) {
+		if(select(1, &rdfs, 0, 0, &tv) > 0) {
+			nbytes = recvfrom(sd, &recvmsg, sizeof(recvmsg), 0, (struct sockaddr *) &cliAddr, &cliLen);
+			if(nbytes > 0) { 
+				// Send ACK
+				ACK.seq_num = recvmesg.seq_num;
+				nbytes = sendto_(sd, (void*)ACK, sizeof(ACK),0, (struct sockaddr *) &cliAddr, sizeof(cliLen));
+				break; 
+			}
+		}		
+	}
+ * */	
 }
 
+
 /* Reads a file into active memory. */
+/* Possible Alternative - as we read the file, we send the file...gross... */
 char*
 read_file_into_memery(char* filename) {
 	char full_file[MAX_FILE_SIZE]; //todo - dynamic memory?
