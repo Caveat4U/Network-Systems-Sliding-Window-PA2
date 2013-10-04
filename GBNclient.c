@@ -20,6 +20,12 @@
 
 char* read_file_into_memory(char* filename);
 
+//typedef struct SendBuffer {
+//	struct Packet buff[WINDOW_SIZE];
+//	int LAR;
+//	int LFS;
+//};
+
 int main(int argc, char *argv[]) {
     
 	int nbytes;
@@ -109,10 +115,6 @@ int main(int argc, char *argv[]) {
 			printf("%d, Nbytes: %d, ACK: %d\n",select_value, nbytes, ACK.seq_num);
 			FD_CLR(sd, &rdfs);
 		}
-		//	}
-		//}else{
-			//printf("Fork Failed!");
-		//}
 		count++;
 	}
 	
@@ -130,7 +132,9 @@ int main(int argc, char *argv[]) {
 // read 4 - send 4 - start timer4
 
 	// while(currpacket == !EOF){
+		while(currpacket != this_packet.eof){
 	// listen for ACK...
+			
 		// If ACK is received for leftmost value (LAR = last ack received), slide window
 		// while(timer1 != 0){
 			// if(ACK == LAR+1) {

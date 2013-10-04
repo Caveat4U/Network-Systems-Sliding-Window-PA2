@@ -6,6 +6,7 @@
 typedef struct Packet {
 	int seq_num;
 	char chunk[MAX_FILE_CHUNK_SIZE]; //TODO - make me a char*???
+	int eof = 0;
 	// It would prevent us from having to set it with strcpy()
 //	tv.tv_sec = -1;
 //	tv.tv_usec = -1;
