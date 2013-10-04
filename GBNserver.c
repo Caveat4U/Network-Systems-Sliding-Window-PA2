@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in cliAddr;
 	unsigned int cliLen;
 	int nbytes;
-	struct Packet recvmsg;
+	struct Packet packet;
 	struct Packet ACK;
 	strcpy(ACK.chunk, "ACK");
 	//bzero(recvmsg, sizeof(recvmsg));
@@ -62,10 +62,17 @@ int main(int argc, char *argv[]) {
 	FD_SET(sd, &rdfs);
 	
 	/*Wait up to TIMEOUT ms TODO - check if usec is microsec and convert */
-	tv.tv_sec = 0;
+	/*tv.tv_sec = 5;
 	tv.tv_usec = TIMEOUT;
-	printf("The value of select() is %d\n", select(1, &rdfs, 0, 0, &tv));
+	int count; 
+	count = 0;
 	while(1) {
+		int val = select(1, &rdfs, 0, 0, &tv);	
+		printf("The value of select() is %d at %d\n", val, count);
+		count++;
+		
+	}*/
+	/*while(1) {
 		nbytes = recvfrom(sd, &recvmsg, sizeof(recvmsg), 0, (struct sockaddr *) &cliAddr, &cliLen);
 		if(nbytes > 0) { 
 			// Send ACK
@@ -73,9 +80,75 @@ int main(int argc, char *argv[]) {
 			nbytes = sendto_(sd, (void*)&ACK, sizeof(ACK),0, (struct sockaddr *) &cliAddr, sizeof(cliLen));
 			break; 
 		}
-	}
-	printf("%s recieved.\n", recvmsg.chunk);
+	}*/
+
 	/* Respond using sendto_ in order to simulate dropped packets */
 	//char response[] = "respond this";
 	
+	
+	// LAF = Largest Acceptable Frame - top bound of window
+	// LFR = Last Frame Received (Server Side) - 1 frame before our window bottom bound
+	// LFS = Last Frame Sent (Client side)
+	
+	struct Packet window[WINDOW_SIZE];
+	int i; // Simple iterator for later
+	int LAF = WINDOW_SIZE-1;
+	int LFR = -1;
+	
+	for (i = 0; i < WINDOW_SIZE; i++) {
+		window[i].seq_num = -1;
+		strcpy(window[i].chunk, ""); //Maybe?
+	}
+	
+	// We have a window which contains WINDOWSIZE number of frames
+	// We have each frame containing a Packet struct
+	
+	// Suppose window size of 4 packets
+	
+	
+	//FILE* file_out;
+	//fopen(file_out, "w+");
+	while (1) {
+		// Listen
+		nbytes = recvfrom(sd, &packet, sizeof(packet), 0, (struct sockaddr *) &cliAddr, &cliLen);
+		// If we got something useful
+		if (nbytes > 0) {
+			// if packet is in our acceptable frame
+			if (packet.seq_num <= LAF && packet.seq_num > LFR) {
+				// If the frame isn't set - invalid packet found.
+				if(window[packet.seq_num % WINDOW_SIZE].seq_num == -1) {
+					window[packet.seq_num % WINDOW_SIZE] = packet;
+					// Set ACK.
+					ACK.seq_num = packet.seq_num;
+					if(packet.seq_num == LFR + 1) {
+						// Move the window
+						// Write out what we have in window[0] - our leftmost frame
+						printf("%s\n", window[0].chunk);
+						//fwrite(file_out, MAX_FILE_CHUNK_SIZE, window[0].chunk);
+						// Shift the window.
+						for(i = 0; i < WINDOW_SIZE - 1; i++) {
+							window[i] = window[i+1];
+						}
+						// Invalidate the last frame
+						window[WINDOW_SIZE].seq_num = -1;
+						LFR++;
+						LAF++;
+					}
+				}
+				else { //- NOT IN FRAME - CRAP
+					// It's shit. Discard.
+					ACK.seq_num = LFR;
+					// Send ACK for LFR
+				}
+			}
+			sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, sizeof(cliLen));
+			
+			//TODO - if EOF was received - handle me differently above...where?
+			//fclose(file_out);
+			//exit(EXIT_SUCCESS);
+		}
+	}
+	
+	// This SHOULD be unreachable, but just in case...
+	exit(EXIT_FAILURE);
 }

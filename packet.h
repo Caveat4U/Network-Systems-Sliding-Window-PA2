@@ -5,11 +5,9 @@
 
 typedef struct Packet {
 	int seq_num;
-	int timeout;
 	char chunk[MAX_FILE_CHUNK_SIZE]; //TODO - make me a char*???
 	// It would prevent us from having to set it with strcpy()
 	
 	//bool ack_received;
 	//bool ack_sent;
 };
-
