@@ -13,6 +13,7 @@
 #include <time.h>
 #include "sendto_.h"
 #include "packet.h"
+#include "window_storage.h"
 
 int main(int argc, char *argv[]) {
 
@@ -120,7 +121,7 @@ int main(int argc, char *argv[]) {
 		// If we got something useful
 		if (nbytes > 0) {
 			// if packet is in our acceptable frame
-			/*if (packet.seq_num <= LAF && packet.seq_num > LFR) {
+			if (packet.seq_num <= LAF && packet.seq_num > LFR) {
 				// If the frame isn't set - invalid packet found.
 				if(!exists(window, packet)) {
 					insert(window, packet);
@@ -142,7 +143,7 @@ int main(int argc, char *argv[]) {
 					ACK.seq_num = LFR;
 					// Send ACK for LFR
 				}
-			}*/
+			}
 			sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, sizeof(cliLen));
 			
 			//TODO - if EOF was received - handle me differently above...where?
