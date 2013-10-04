@@ -64,34 +64,37 @@ int main(int argc, char *argv[]) {
 
 	/* Call sendto_ in order to simulate dropped packets */
 	int nbytes;
-	char msg[] = "send this";
 	struct Packet this_packet;
-	this_packet.seq_num = 0;
-	strcpy(this_packet.chunk, "Sending crap for our shit to see if shit is fucked.");
-	nbytes = sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+	int i;
+	for(i=0;i<12;i++) {
+		this_packet.seq_num = i;
+		strcpy(this_packet.chunk, "Sending crap for our shit to see if shit is fucked.");
+		strcat(this_packet.chunk, " ");
+		//strcat(this_packet.chunk, (char)i);
+		strcat(this_packet.chunk, "\n");
+		nbytes = sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+	}
 	
-	exit(EXIT_SUCCESS);
 	
 	
-	
-	alarm(TIMEOUT/1000);
+	/*alarm(TIMEOUT/1000);
 	
 	if(errno == SIGALRM) {
 		// alarm went off - resubmit packet
 		nbytes = sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
 		alarm(TIMEOUT/1000);
-	}
+	}*/
 	
 	//while(select(1, &rdfs, 0, 0, &tv) == 0) {
-	nbytes = recvfrom(sd, &ACK, sizeof(ACK), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
-	if(nbytes > 0) { 
+	//nbytes = recvfrom(sd, &ACK, sizeof(ACK), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+	//if(nbytes > 0) { 
 		// ACK received.
-		printf("ACK Recieved.\n");
-		strcpy(ACK.chunk, ""); // DO WE NEED THIS?
+		//printf("ACK Recieved.\n");
+		//strcpy(ACK.chunk, ""); // DO WE NEED THIS?
 		// Maybe we should be checking to see if the ACK.chunk == "ACK"???
 		
 		// TODO - move the window 
-	}
+	//}
 /*
  * while(1) {
 		if(select(1, &rdfs, 0, 0, &tv) > 0) {
@@ -161,8 +164,6 @@ read_file_into_memory(char* filename) {
 	printf("%d", num_chunks);
 	
 	remainder = ftell(file_pointer) % MAX_FILE_CHUNK_SIZE;
-	
-	
 	
 	// Will send everything EXCEPT FOR the file remainder
 	for(i = 0; i < num_chunks; i++) {
