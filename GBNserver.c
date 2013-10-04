@@ -116,7 +116,8 @@ int main(int argc, char *argv[]) {
 	while (1) {
 		// Listen
 		nbytes = recvfrom(sd, &packet, sizeof(packet), 0, (struct sockaddr *) &cliAddr, &cliLen);
-		printf("%d %s\n", packet.seq_num, packet.chunk);
+		printf("%d %s Nbytes: %d\n", packet.seq_num, packet.chunk, nbytes);
+		ACK.seq_num = packet.seq_num;	//TODO: REMOVE ME!
 		// If we got something useful
 		if (nbytes > 0) {
 			// if packet is in our acceptable frame
@@ -143,7 +144,7 @@ int main(int argc, char *argv[]) {
 					// Send ACK for LFR
 				}
 			}*/
-			sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, sizeof(cliLen));
+			sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
 			
 			//TODO - if EOF was received - handle me differently above...where?
 			//fclose(file_out);
