@@ -116,21 +116,17 @@ int main(int argc, char *argv[]) {
 			// if packet is in our acceptable frame
 			if (packet.seq_num <= LAF && packet.seq_num > LFR) {
 				// If the frame isn't set - invalid packet found.
-				if(window[(LFR+packet.seq_num+1) % WINDOW_SIZE].seq_num == -1) {
-					window[(LFR+packet.seq_num+1) % WINDOW_SIZE] = packet;
+				if(!exists(window, packet)) {
+					insert(window, packet);
 					// Set ACK.
 					ACK.seq_num = packet.seq_num;
 					if(packet.seq_num == LFR + 1) {
 						// Move the window
-						// Write out what we have in window[0] - our leftmost frame
-						printf("%d %s\n", window[0].seq_num, window[0].chunk);
-						//fwrite(file_out, MAX_FILE_CHUNK_SIZE, window[0].chunk);
-						// Shift the window.
-						for(i = 0; i < WINDOW_SIZE - 1; i++) {
-							window[i] = window[i+1];
-						}
-						// Invalidate the last frame
-						window[WINDOW_SIZE].seq_num = -1;
+						// Write out what we have in the head of window - our leftmost frame
+						printf("%d %s\n", get_head(window).seq_num, get_head(window).chunk);
+						//fwrite(file_out, MAX_FILE_CHUNK_SIZE, window.get_head());
+						// Get rid of the current head
+						window.delete_head(window);
 						LFR++;
 						LAF++;
 					}
