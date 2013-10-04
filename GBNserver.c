@@ -55,12 +55,16 @@ int main(int argc, char *argv[]) {
 	struct Packet packet;
 	struct Packet ACK;
 	strcpy(ACK.chunk, "ACK");
-	//bzero(recvmsg, sizeof(recvmsg));
 	cliLen = sizeof(cliAddr);
-	//nbytes = recvfrom(sd, &recvmsg, sizeof (recvmsg), 0, (struct sockaddr *) &cliAddr, &cliLen);
-	fd_set rdfs; 
-	struct timeval tv;
-	FD_SET(sd, &rdfs);
+
+	// Intialize window.
+	window.head_index_pointer_val = 0;
+	window.tail_index_pointer_val = 0;
+
+	for (i = 0; i < WINDOW_SIZE; i++) {
+		window.back_end_window[i].seq_num = -1;
+	}
+	
 	
 	/*Wait up to TIMEOUT ms TODO - check if usec is microsec and convert */
 	/*tv.tv_sec = 5;

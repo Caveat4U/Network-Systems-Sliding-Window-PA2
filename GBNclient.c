@@ -36,6 +36,7 @@ int main(int argc, char *argv[]) {
 	struct Packet ACK;
 	int sockets[WINDOW_SIZE];     
 	int count = 0;
+	int i;
 	int select_value;
 	
 	/* check command line args. */
@@ -51,16 +52,6 @@ int main(int argc, char *argv[]) {
 	printf("error rate : %f\n",atof(argv[3]));
 
 	/* socket creation */
-
-	int i;
-	for(i = 0; i < WINDOW_SIZE; i++) {
-		if((sockets[i] = socket(AF_INET, SOCK_DGRAM, 0))<0)
-		{
-			printf("%s: cannot create socket \n",argv[0]);
-			exit(1);
-		}
-	}
-	
 	sd = socket(AF_INET, SOCK_DGRAM, 0);
 	//FD_SET(sd, &rdfs);
 	
@@ -68,6 +59,14 @@ int main(int argc, char *argv[]) {
 	tv.tv_sec = 5;
 	tv.tv_usec = 0;
 	
+	// Intialize window.
+	window.head_index_pointer_val = 0;
+	window.tail_index_pointer_val = 0;
+
+	for (i = 0; i < WINDOW_SIZE; i++) {
+		window.back_end_window[i].seq_num = -1;
+	}
+
 	/* get server IP address (input must be IP address, not DNS name) */
 	struct sockaddr_in remoteServAddr;
 	bzero(&remoteServAddr,sizeof(remoteServAddr));               //zero the struct
@@ -75,18 +74,6 @@ int main(int argc, char *argv[]) {
 	remoteServAddr.sin_port = htons(atoi(argv[2]));      //sets port to network byte order
 	remoteServAddr.sin_addr.s_addr = inet_addr(argv[1]); //sets remote IP address
 	printf("%s: sending data to '%s:%s' \n", argv[0], argv[1], argv[2]);
-
-	/* Call sendto_ in order to simulate dropped packets */
-
-	//int i;
-	for(i=0;i<12;i++) {
-		this_packet.seq_num = i;
-		strcpy(this_packet.chunk, "Sending crap for our shit to see if shit is fucked.");
-		strcat(this_packet.chunk, " ");
-		//strcat(this_packet.chunk, (char)i);
-		strcat(this_packet.chunk, "\n");
-		//nbytes = sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
-	}
 	
 	
 	//multiple sockets that are size of window
