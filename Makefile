@@ -4,7 +4,7 @@ server: GBNserver.c
 	gcc GBNserver.c -o server #-DDEBUG
 
 client: GBNclient.c
-	gcc GBNclient.c -o client
+	gcc GBNclient.c -lm -o client
 
 clean:
 	rm -f server client

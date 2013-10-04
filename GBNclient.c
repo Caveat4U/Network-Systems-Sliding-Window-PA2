@@ -16,6 +16,7 @@
 #include <errno.h>
 #include "sendto_.h"
 #include "packet.h"
+#include <math.h>
 
 char* read_file_into_memory(char* filename);
 
@@ -37,7 +38,7 @@ int main(int argc, char *argv[]) {
 	printf("error rate : %f\n",atof(argv[3]));
 
 	/* socket creation */
-	/*int sockets[WINDOW_SIZE];
+	int sockets[WINDOW_SIZE];
 	int i;
 	for(i = 0; i < WINDOW_SIZE; i++) {
 		if((sockets[i] = socket(AF_INET, SOCK_DGRAM, 0))<0)
@@ -46,12 +47,12 @@ int main(int argc, char *argv[]) {
 			exit(1);
 		}
 		FD_SET(sockets[i], &rdfs);
-	}*/
+	}
 	int sd;
 	sd = socket(AF_INET, SOCK_DGRAM, 0);
 
 	/*Wait up to TIMEOUT ms TODO - check if usec is microsec and convert */
-	tv.tv_sec = 0;
+	tv.tv_sec = 5;
 	tv.tv_usec = TIMEOUT;
 	
 	/* get server IP address (input must be IP address, not DNS name) */
@@ -65,15 +66,57 @@ int main(int argc, char *argv[]) {
 	/* Call sendto_ in order to simulate dropped packets */
 	int nbytes;
 	struct Packet this_packet;
-	int i;
+	//int i;
 	for(i=0;i<12;i++) {
 		this_packet.seq_num = i;
 		strcpy(this_packet.chunk, "Sending crap for our shit to see if shit is fucked.");
 		strcat(this_packet.chunk, " ");
 		//strcat(this_packet.chunk, (char)i);
 		strcat(this_packet.chunk, "\n");
-		nbytes = sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+		//nbytes = sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
 	}
+	
+	
+	//multiple sockets that are size of window
+	//send data into each socket
+	//call select after all data is originally sent
+	//if there is an ACK, do stuff
+	
+	// Initial Send
+	int count;
+	count = 0;
+	int select_value;
+	
+	while(1) {
+		this_packet.seq_num = count;
+		strcpy(this_packet.chunk, "Sending crap for our shit to see if shit is fucked.");
+		
+		for(i = 0; i < WINDOW_SIZE; i++) {
+			if (FD_ISSET(sockets[i], &rdfs)) {
+				sendto_(sockets[i], (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+				break;
+			}
+		}
+		
+		//find a socket that's free and send to it
+		select_value = select(WINDOW_SIZE, &rdfs, 0, 0, &tv);
+		printf("%d\n",select_value);
+		break;
+		if(select_value != 0) {
+			// THERE'S FUCKING DATA!
+			// Look for ACK
+			for(i = 0; i < WINDOW_SIZE; i++) {
+				if (FD_ISSET(sockets[i], &rdfs)) {
+					nbytes = recvfrom(sockets[i], &ACK, sizeof(ACK), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+					break;
+				}
+			}
+		}
+		
+
+		count++;
+	}
+
 	
 	
 	
@@ -134,7 +177,7 @@ int main(int argc, char *argv[]) {
 	// wait for any timer to explode
 	
 	// if any timer explodes, resend associated frame
-	read_file_into_memory("wordlst.txt");
+	//read_file_into_memory("wordlst.txt");
 
 }
 
@@ -160,7 +203,7 @@ read_file_into_memory(char* filename) {
 	int count=0;
 	int i, file_pos, num_chunks, remainder;
 	fseek(file_pointer, 0, SEEK_END);
-	num_chunks = ftell(file_pointer) / MAX_FILE_CHUNK_SIZE;
+	num_chunks = floor((float)(ftell(file_pointer) / MAX_FILE_CHUNK_SIZE));
 	printf("%d", num_chunks);
 	
 	remainder = ftell(file_pointer) % MAX_FILE_CHUNK_SIZE;
@@ -174,8 +217,16 @@ read_file_into_memory(char* filename) {
 		fseek(file_pointer, file_pos, SEEK_CUR);
 		fread(chunk, MAX_FILE_CHUNK_SIZE, 1, file_pointer);
 		printf("CHUNK: %s\n\n", chunk);
+
+		//strcpy(this_packet.chunk ,chunk);
+		//this_packet.seq_num = i;
+		//sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+
 	}
 	
+
+
+
 	/*
 	while(!feof(file_pointer))
 	{
