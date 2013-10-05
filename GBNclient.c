@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 	window.head_index_pointer_val = 0;
 	window.tail_index_pointer_val = 0;
 	for (i = 0; i < WINDOW_SIZE; i++) {
-		window.back_end_window[i].seq_num = -1;
+		window.back_end_window[i].seq_num = 0;
 	}
 
 	/* get server IP address (input must be IP address, not DNS name) */
@@ -102,13 +102,45 @@ int main(int argc, char *argv[]) {
 	}*/
 	
 	//read and send while there's an open space
+	char chunk[MAX_FILE_CHUNK_SIZE];
+	FILE *file_pointer;
 
-	while(1) {
+	bzero(chunk, sizeof(chunk));
+
+	file_pointer = fopen(argv[5], "r");
+	if (file_pointer == NULL)
+	{
+		fprintf(stderr, "Cannot open input file %s! Sucks to be you nerd...\n", argv[5]);
+		exit(EXIT_FAILURE);
+	}
+
+	int file_pos, num_chunks, remainder;
+	fseek(file_pointer, 0, SEEK_END);
+	num_chunks = floor((float)(ftell(file_pointer) / MAX_FILE_CHUNK_SIZE));
+	printf("%d", num_chunks);
+	
+	remainder = ftell(file_pointer) % MAX_FILE_CHUNK_SIZE;
+	
+
+	while(count <= num_chunks) {
+		// Set the seq_num of this packet.
 		this_packet.seq_num = count;	
+
+		// Get the chunk.
+		bzero(chunk, sizeof(chunk));
+		rewind(file_pointer);
+		file_pos = this_packet.seq_num * MAX_FILE_CHUNK_SIZE;
+		fseek(file_pointer, file_pos, SEEK_CUR);
+		fread(chunk, MAX_FILE_CHUNK_SIZE, 1, file_pointer);
+
+		// Throw the chunk value up into our packet.
+		strcpy(this_packet.chunk, chunk);
+
 		// Cycle through window
 		// Send anything in the window
 		// Read in a chunk
 		sendto_(sd, (void *)&this_packet, sizeof(struct Packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr)); 	
+		client_log(log_file, "Send", this_packet.seq_num, get_free_slots(), LAR, LFS);
 		offset = this_packet.seq_num - window.back_end_window[window.head_index_pointer_val].seq_num;
 		put(offset, this_packet);
 		FD_SET(sd, &rdfs); // Everything is in the pipe
@@ -119,6 +151,7 @@ int main(int argc, char *argv[]) {
 		if(select_value > 0) {
 			// Look for ACK
 			nbytes = recvfrom(sd, &ACK, sizeof(ACK), 0, (struct sockaddr *) &remoteServAddr, (socklen_t*) sizeof(&remoteServAddr));
+			client_log(log_file, "Receive", ACK.seq_num, get_free_slots(), LAR, LFS);
 			//Calculate a difference between last ACK and current ACK
 
 			// If this is the correct ACK.
@@ -138,7 +171,6 @@ int main(int argc, char *argv[]) {
 				//Store new packet
 				offset = this_packet.seq_num - window.back_end_window[window.head_index_pointer_val].seq_num;
 				put(offset, this_packet);
-				printf("%d, Nbytes: %d, ACK: %d\n",select_value, nbytes, ACK.seq_num);
 			}
 			else // Not correct ACK
 			{
@@ -164,40 +196,7 @@ int main(int argc, char *argv[]) {
 // We have each frame containing a Packet struct
 // We have a timer for each frame
 // Read in the first chunks from the file
-// For small scale purposes, let's use window size of 4
-
-// START PSUEDO CODE
-// for each of the following, use FD_SET(fd, &fdset) to add
-// read 1 - send 1 - start timer1
-// read 2 - send 2 - start timer2
-// read 3 - send 3 - start timer3
-// read 4 - send 4 - start timer4
-
-	// while(currpacket == !EOF){
-	//	while(currpacket != this_packet.eof){
-	// listen for ACK...
-			
-		// If ACK is received for leftmost value (LAR = last ack received), slide window
-		// while(timer1 != 0){
-			// if(ACK == LAR+1) {
-				// then slide window
-				// FD_CLR(fd1, &fdset)
-				// LAR++
-				// LFS++
-				// timer1 = timer2
-				// timer2 = timer3
-				// timer3 = timer4
-				// FD_SET(fd5, &fdset)
-				// timer4 = 50 (start timer for last packet sent)
-			// }else{ - ACK is NOT L MOST value
-				// Something bad happened or duplicate ACK received
-				// No worries - no shit gets done here.
-		//		}
-		// }
-	// timer hit 0
-		// resend all packets
-	// }
-	//read_file_into_memory("wordlst.txt");
+	fclose(file_pointer);
 	fclose(log_file);
 
 }
@@ -246,44 +245,3 @@ read_file_into_memory(char* filename) {
 
 	//return full_file;
 }
-
-	/*alarm(TIMEOUT/1000);
-	
-	if(errno == SIGALRM) {
-		// alarm went off - resubmit packet
-		nbytes = sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
-		alarm(TIMEOUT/1000);
-	}*/
-	
-	//while(select(1, &rdfs, 0, 0, &tv) == 0) {
-	//nbytes = recvfrom(sd, &ACK, sizeof(ACK), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
-	//if(nbytes > 0) { 
-		// ACK received.
-		//printf("ACK Recieved.\n");
-		//strcpy(ACK.chunk, ""); // DO WE NEED THIS?
-		// Maybe we should be checking to see if the ACK.chunk == "ACK"???
-		
-		// TODO - move the window 
-	//}
-/*
- * while(1) {
-		if(select(1, &rdfs, 0, 0, &tv) > 0) {
-			nbytes = recvfrom(sd, &recvmsg, sizeof(recvmsg), 0, (struct sockaddr *) &cliAddr, &cliLen);
-			if(nbytes > 0) { 
-				// Send ACK
-				ACK.seq_num = recvmesg.seq_num;
-				nbytes = sendto_(sd, (void*)ACK, sizeof(ACK),0, (struct sockaddr *) &cliAddr, sizeof(cliLen));
-				break; 
-			}
-		}		
-	}
- * */	
- 	/*
-	while(!feof(file_pointer))
-	{
-		fread(chunk, MAX_FILE_CHUNK_SIZE, 1, file_pointer);
-		//append chunk to file
-		strncat(full_file, chunk, MAX_FILE_CHUNK_SIZE);
-		bzero(chunk, MAX_FILE_CHUNK_SIZE);
-		count++;
-	}*/

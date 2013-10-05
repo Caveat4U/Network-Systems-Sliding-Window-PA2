@@ -14,6 +14,7 @@
 #include "sendto_.h"
 #include "packet.h"
 #include "window_storage.h"
+#include "log.h"
 
 int main(int argc, char *argv[]) {
 
@@ -57,12 +58,21 @@ int main(int argc, char *argv[]) {
 	strcpy(ACK.chunk, "ACK");
 	cliLen = sizeof(cliAddr);
 
+	// Open the log file
+	FILE* log_file;
+	log_file = fopen(argv[5], "w");
+	if (log_file == NULL)
+	{
+		fprintf(stderr, "Cannot open input file %s! Sucks to be you nerd...\n", argv[5]);
+		exit(EXIT_FAILURE);
+	}
+
 	// Intialize window.
 	window.head_index_pointer_val = 0;
 	window.tail_index_pointer_val = 0;
 
 	for (i = 0; i < WINDOW_SIZE; i++) {
-		window.back_end_window[i].seq_num = -1;
+		window.back_end_window[i].seq_num = 0;
 	}
 	
 	// LAF = Largest Acceptable Frame - top bound of window
@@ -82,13 +92,14 @@ int main(int argc, char *argv[]) {
 	while (1) {
 		// Listen
 		nbytes = recvfrom(sd, &packet, sizeof(packet), 0, (struct sockaddr *) &cliAddr, &cliLen);
+		server_log(log_file, "Recieve", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
 		printf("%d %s Nbytes: %d\n", packet.seq_num, packet.chunk, nbytes);
 		// If we got something useful
 		if (nbytes > 0) {
 			// if packet is in our acceptable frame
 			if (packet.seq_num <= LAF && packet.seq_num > LFR) {
 				// If the frame isn't set - invalid packet found.
-				if(!exists(packet)) {
+				if(exists(packet)) {
 					offset = packet.seq_num - window.back_end_window[window.head_index_pointer_val].seq_num;
 					put(offset, packet);
 					if(packet.seq_num == LFR + 1) {
@@ -101,6 +112,7 @@ int main(int argc, char *argv[]) {
 							// Set ACK.
 							ACK.seq_num = get_current_head().seq_num;
 							sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
+							server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
 							delete_current_head();
 							LFR++;
 							LAF++;	
@@ -111,6 +123,7 @@ int main(int argc, char *argv[]) {
 						// Repeat last successful ACKed frame - LFR
 						ACK.seq_num = LFR;
 						sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
+						server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
 					}
 				}
 				else { //- NOT IN FRAME - CRAP
