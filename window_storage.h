@@ -1,8 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include "packet.h"
-
-
 struct window_storage {
 	int head_index_pointer_val;
 	int tail_index_pointer_val;
@@ -17,13 +12,13 @@ put(int seq_difference, struct Packet this_packet) {
 }
 
 int
-del_curr_head() {
+delete_current_head() {
 	window.back_end_window[window.head_index_pointer_val].seq_num = -1;
 	window.head_index_pointer_val = (window.head_index_pointer_val + 1) % WINDOW_SIZE;
 }
 
 void
-print_curr_values() {
+print_current_values() {
 	int i;
 	printf("[");
 	for(i = 0; i < WINDOW_SIZE; i++){
@@ -37,6 +32,17 @@ print_curr_values() {
 struct Packet
 get_current_head() {
 	return window.back_end_window[window.head_index_pointer_val];
+}
+
+int
+exists(struct Packet this_packet) {
+	int i;
+	for (i=0; i<WINDOW_SIZE; i++) {
+		if(window.back_end_window[i].seq_num == this_packet.seq_num) {
+			return 1;
+		}
+	}
+	return 0;
 }
 
 /*int

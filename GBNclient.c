@@ -17,6 +17,7 @@
 #include "sendto_.h"
 #include "packet.h"
 #include <math.h>
+#include "window_storage.h"
 
 char* read_file_into_memory(char* filename);
 
@@ -39,6 +40,7 @@ int main(int argc, char *argv[]) {
 	int i;
 	int select_value;
 	
+
 	/* check command line args. */
 	if(argc<7)
 	{
@@ -83,26 +85,56 @@ int main(int argc, char *argv[]) {
 	
 	// Initial Send
 	count = 0;
+
+	strcpy(this_packet.chunk, "Sending crap for our shit to see if shit is fucked.");
+	int offset = 0;
+	int num_available_slots = 0;
+	LAR = 0;
+
+	// Read in window size worth of data and put it into the window
+	for(i=0; i<WINDOW_SIZE;i++) {
+		offset = i - window.back_end_window[window.head_index_pointer_val].seq_num;
+		put(offset, this_packet);
+	}
+
+
 	while(1) {
 		this_packet.seq_num = count;
-		strcpy(this_packet.chunk, "Sending crap for our shit to see if shit is fucked.");
-				
-		// Send enough data to make sure the window is full
-		sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
-		FD_SET(sd, &rdfs);
-		//nbytes = recvfrom(sockets[0], &ACK, sizeof(ACK), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
-		//printf("ACK Number: %d\n",ACK.seq_num);
 			
+		//Cycle through window
+			//send anything in the window 	
+		for(i=window.head_index_pointer_val; i<abs(window.head_index_pointer_val - window.tail_index_pointer_val); i++) {
+			// Send packet if exists
+			if(window.back_end_window[i].seq_num != -1) {
+				sendto_(sd, (void *)&window.back_end_window[i], sizeof(struct Packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+			}
+		}
+		FD_SET(sd, &rdfs); // Everything is in the pipe
+
 		//find a socket that's free and send to it
 		select_value = select(sd+1, &rdfs, 0, 0, &tv);
-		if(select_value != 0) {
+		while(select_value != 0) {
 			// THERE'S FUCKING DATA!
 			// Look for ACK
-			nbytes = recvfrom(sd, &ACK, sizeof(ACK), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+			nbytes = recvfrom(sd, &ACK, sizeof(ACK), 0, (struct sockaddr *) &remoteServAddr, (socklen_t*) sizeof(&remoteServAddr));
+			
+			// If this is the correct ACK.
+			if(ACK.seq_num == LAR+1) {
+				//Get rid of old packet
+				delete_current_head();
+				//Read in new packet - TODO
+				//Store new packet
+				offset = this_packet.seq_num - window.back_end_window[window.head_index_pointer_val].seq_num;
+				put(offset, this_packet);
+			}
 			printf("%d, Nbytes: %d, ACK: %d\n",select_value, nbytes, ACK.seq_num);
-			FD_CLR(sd, &rdfs);
+			select_value = select(sd+1, &rdfs, 0, 0, &tv);
 		}
-		count++;
+		FD_CLR(sd, &rdfs);
+		else { // A timeout occured.
+			sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+		}
+		
 	}
 	
 // We have a window which contains WINDOWSIZE number of frames
@@ -119,7 +151,7 @@ int main(int argc, char *argv[]) {
 // read 4 - send 4 - start timer4
 
 	// while(currpacket == !EOF){
-		while(currpacket != this_packet.eof){
+	//	while(currpacket != this_packet.eof){
 	// listen for ACK...
 			
 		// If ACK is received for leftmost value (LAR = last ack received), slide window
@@ -151,11 +183,9 @@ int main(int argc, char *argv[]) {
 /* Possible Alternative - as we read the file, we send the file...gross... */
 char*
 read_file_into_memory(char* filename) {
-	char full_file[MAX_FILE_SIZE]; //todo - dynamic memory?
 	char chunk[MAX_FILE_CHUNK_SIZE];
 	FILE *file_pointer;
 
-	bzero(full_file, sizeof(full_file));
 	bzero(chunk, sizeof(chunk));
 
 	file_pointer = fopen(filename, "r");
@@ -194,7 +224,7 @@ read_file_into_memory(char* filename) {
 
 
 	fclose(file_pointer);
-	return full_file;
+	//return full_file;
 }
 
 	/*alarm(TIMEOUT/1000);

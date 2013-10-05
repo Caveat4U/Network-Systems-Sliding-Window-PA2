@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
 	init_net_lib(atof(argv[2]), atoi(argv[3]));
 	printf("error rate : %f\n",atof(argv[2]));
 
-	int sd;
+	int sd, i;
 	/* socket creation */
 	if((sd=socket(AF_INET, SOCK_DGRAM, 0))<0)
 	{
@@ -95,15 +95,10 @@ int main(int argc, char *argv[]) {
 	// LFR = Last Frame Received (Server Side) - 1 frame before our window bottom bound
 	// LFS = Last Frame Sent (Client side)
 	
-	struct Packet window[WINDOW_SIZE];
-	int i; // Simple iterator for later
+	//int i; // Simple iterator for later
 	int LAF = WINDOW_SIZE-1;
 	int LFR = -1;
 	
-	for (i = 0; i < WINDOW_SIZE; i++) {
-		window[i].seq_num = -1;
-		strcpy(window[i].chunk, ""); //Maybe?
-	}
 	
 	// We have a window which contains WINDOWSIZE number of frames
 	// We have each frame containing a Packet struct
@@ -115,32 +110,34 @@ int main(int argc, char *argv[]) {
 		// if the slot[0] sequence number > than packet.seq_num?
 			//
 	
-	
+	int offset = 0;
 	//FILE* file_out;
 	//fopen(file_out, "w+");
 	while (1) {
 		// Listen
 		nbytes = recvfrom(sd, &packet, sizeof(packet), 0, (struct sockaddr *) &cliAddr, &cliLen);
-		printf("%d %s Nbytes: %d\n", packet.seq_num, packet.chunk, nbytes);
-		ACK.seq_num = packet.seq_num;	//TODO: REMOVE ME!
+		//printf("%d %s Nbytes: %d\n", packet.seq_num, packet.chunk, nbytes);
 		// If we got something useful
 		if (nbytes > 0) {
 			// if packet is in our acceptable frame
 			if (packet.seq_num <= LAF && packet.seq_num > LFR) {
 				// If the frame isn't set - invalid packet found.
-				if(!exists(window, packet)) {
-					insert(window, packet);
-					// Set ACK.
-					ACK.seq_num = packet.seq_num;
+				if(!exists(packet)) {
+					offset = packet.seq_num - window.back_end_window[window.head_index_pointer_val].seq_num;
+					put(offset, packet);
 					if(packet.seq_num == LFR + 1) {
 						// Move the window
 						// Write out what we have in the head of window - our leftmost frame
-						printf("%d %s\n", get_head(window).seq_num, get_head(window).chunk);
+						printf("%d %s\n", get_current_head().seq_num, get_current_head().chunk);
 						//fwrite(file_out, MAX_FILE_CHUNK_SIZE, window.get_head());
-						// Get rid of the current head
-						window.delete_head(window);
-						LFR++;
-						LAF++;
+						// Get rid of ALL recieved packets in order
+						while(get_current_head().seq_num != -1) {
+							// Set ACK.
+							ACK.seq_num = get_current_head.seq_num;
+							delete_current_head();
+							LFR++;
+							LAF++;	
+						}
 					}
 				}
 				else { //- NOT IN FRAME - CRAP
