@@ -117,11 +117,12 @@ int main(int argc, char *argv[]) {
 	int file_pos, num_chunks, remainder;
 	fseek(file_pointer, 0, SEEK_END);
 	num_chunks = floor((float)(ftell(file_pointer) / MAX_FILE_CHUNK_SIZE));
-	printf("%d", num_chunks);
+	printf("%d\n", num_chunks);
 	
 	remainder = ftell(file_pointer) % MAX_FILE_CHUNK_SIZE;
 	
 
+	// Keep going until LAR is at last spot.
 	while(LAR <= num_chunks) {
 		// Set the seq_num of this packet.
 		this_packet.seq_num = count;	
@@ -132,6 +133,12 @@ int main(int argc, char *argv[]) {
 		file_pos = this_packet.seq_num * MAX_FILE_CHUNK_SIZE;
 		fseek(file_pointer, file_pos, SEEK_CUR);
 		fread(chunk, MAX_FILE_CHUNK_SIZE, 1, file_pointer);
+		// If it's the LAST chunk
+		if(feof(file_pointer)) {
+			printf("FOUND LAST CHUNK!\n");
+			this_packet.last_packet = 1;
+			this_packet.remainder = remainder;
+		}
 
 		// Throw the chunk value up into our packet.
 		strcpy(this_packet.chunk, chunk);
@@ -155,7 +162,7 @@ int main(int argc, char *argv[]) {
 			//Calculate a difference between last ACK and current ACK
 
 			// If this is the correct ACK.
-			if(ACK.seq_num >= LAR+1) {
+			if(ACK.seq_num > LAR) {
 				LAR = ACK.seq_num;
 				//Get rid of all old packets less than ACK.seq_num
 				for(i=0; i<WINDOW_SIZE; i++) {
@@ -166,11 +173,7 @@ int main(int argc, char *argv[]) {
 						count++;
 					}
 				}
-				
-				//Read in new packet - TODO
-				//Store new packet
-				offset = this_packet.seq_num - window.back_end_window[window.head_index_pointer_val].seq_num;
-				put(offset, this_packet);
+				LAR = this_packet.seq_num;
 			}
 			else // Not correct ACK
 			{
