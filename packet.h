@@ -6,4 +6,5 @@ typedef struct Packet {
 	int seq_num;
 	char chunk[MAX_FILE_CHUNK_SIZE]; //TODO - make me a char*???
 	int last_packet;
+	int remainder;
 };

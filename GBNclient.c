@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
 	remainder = ftell(file_pointer) % MAX_FILE_CHUNK_SIZE;
 	
 
-	while(count <= num_chunks) {
+	while(LAR <= num_chunks) {
 		// Set the seq_num of this packet.
 		this_packet.seq_num = count;	
 

@@ -87,8 +87,8 @@ int main(int argc, char *argv[]) {
 	// We have each frame containing a Packet struct
 	
 	int offset = 0;
-	//FILE* file_out;
-	//file_out = fopen(file_name, "w+");
+	FILE* file_out;
+	file_out = fopen(argv[4], "w");
 	while (1) {
 		// Listen
 		nbytes = recvfrom(sd, &packet, sizeof(packet), 0, (struct sockaddr *) &cliAddr, &cliLen);
@@ -104,16 +104,27 @@ int main(int argc, char *argv[]) {
 					put(offset, packet);
 					if(packet.seq_num == LFR + 1) {
 						// Move the window
-						// Write out what we have in the head of window - our leftmost frame
-						printf("%d %s\n", get_current_head().seq_num, get_current_head().chunk);
-						//fwrite(file_out, MAX_FILE_CHUNK_SIZE, window.get_head());
 						// Get rid of ALL recieved packets in order
 						while(get_current_head().seq_num != -1) {
 							// Set ACK.
 							ACK.seq_num = get_current_head().seq_num;
 							sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
 							server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
-							delete_current_head();
+							// Write out what we have in the head of window - our leftmost frame
+							// If it's the last packet, handle it differently.
+							if(get_current_head().last_packet == 1) {
+								printf("%d %s\n", get_current_head().seq_num, get_current_head().chunk);
+								fwrite(&get_current_head().chunk[0], get_current_head().remainder, 1, file_out);
+								delete_current_head();
+								fclose(log_file);
+								fclose(file_out);
+								exit(EXIT_SUCCESS);
+							}
+							else { // If it's NOT the last packet.
+								printf("%d %s\n", get_current_head().seq_num, get_current_head().chunk);
+								fwrite(&get_current_head().chunk[0], MAX_FILE_CHUNK_SIZE, 1, file_out);
+								delete_current_head();
+							}
 							LFR++;
 							LAF++;	
 						}
@@ -133,14 +144,10 @@ int main(int argc, char *argv[]) {
 					// Send ACK for LFR
 				}
 			}
-
-			
-			//TODO - if EOF was received - handle me differently above...where?
-			//fclose(file_out);
-			//exit(EXIT_SUCCESS);
 		}
 	}
 	
 	// This SHOULD be unreachable, but just in case...
+	fprintf(stderr, "The while loop exited unexpectedly. Uh oh.");
 	exit(EXIT_FAILURE);
 }
