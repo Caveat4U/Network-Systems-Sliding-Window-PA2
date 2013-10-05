@@ -174,6 +174,12 @@ int main(int argc, char *argv[]) {
 					}
 				}
 				LAR = this_packet.seq_num;
+				// If the last ACK was recieved.
+				if (ACK.last_packet == 1) {
+					fclose(file_pointer);
+					fclose(log_file);
+					exit(EXIT_SUCCESS);
+				}
 			}
 			else // Not correct ACK
 			{
@@ -199,8 +205,6 @@ int main(int argc, char *argv[]) {
 // We have each frame containing a Packet struct
 // We have a timer for each frame
 // Read in the first chunks from the file
-	fclose(file_pointer);
-	fclose(log_file);
 
 }
 

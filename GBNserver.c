@@ -105,6 +105,9 @@ int main(int argc, char *argv[]) {
 					if(packet.seq_num == LFR + 1) {
 						// Move the window
 						// Get rid of ALL recieved packets in order
+						// TODO - this will send the first chunk WINDOW_SIZE times
+						// We intialized the array originally to -1 to make first offset work
+						// But it will cycle through the whole thing
 						while(get_current_head().seq_num != -1) {
 							// Set ACK.
 							ACK.seq_num = get_current_head().seq_num;
@@ -115,6 +118,9 @@ int main(int argc, char *argv[]) {
 							if(get_current_head().last_packet == 1) {
 								printf("%d %s\n", get_current_head().seq_num, get_current_head().chunk);
 								fwrite(&get_current_head().chunk[0], get_current_head().remainder, 1, file_out);
+								ACK.seq_num = LFR;
+								sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
+								server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
 								delete_current_head();
 								fclose(log_file);
 								fclose(file_out);
@@ -125,8 +131,8 @@ int main(int argc, char *argv[]) {
 								fwrite(&get_current_head().chunk[0], MAX_FILE_CHUNK_SIZE, 1, file_out);
 								delete_current_head();
 							}
-							LFR++;
-							LAF++;	
+							LFR = ACK.seq_num;
+							LAF++;
 						}
 					}
 					else //Not the lowest
