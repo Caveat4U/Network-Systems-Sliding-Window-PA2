@@ -18,14 +18,10 @@
 #include "packet.h"
 #include <math.h>
 #include "window_storage.h"
+#include "log.h"
 
 char* read_file_into_memory(char* filename);
 
-//typedef struct SendBuffer {
-//	struct Packet buff[WINDOW_SIZE];
-//	int LAR;
-//	int LFS;
-//};
 
 int main(int argc, char *argv[]) {
     
@@ -48,6 +44,16 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
+	// Open the log file
+	FILE* log_file;
+	log_file = fopen(argv[6], "w");
+	if (log_file == NULL)
+	{
+		fprintf(stderr, "Cannot open input file %s! Sucks to be you nerd...\n", argv[6]);
+		exit(EXIT_FAILURE);
+	}
+
+
 	/* Note: you must initialize the network library first before calling sendto_().  The arguments are the <errorrate> and <random seed> */
 	init_net_lib(atof(argv[3]), atoi(argv[4]));
 	
@@ -57,14 +63,13 @@ int main(int argc, char *argv[]) {
 	sd = socket(AF_INET, SOCK_DGRAM, 0);
 	//FD_SET(sd, &rdfs);
 	
-	/*Wait up to TIMEOUT ms TODO - check if usec is microsec and convert */
+	/* Wait up to TIMEOUT ms TODO - check if usec is microsec and convert */
 	tv.tv_sec = 5;
 	tv.tv_usec = 0;
 	
 	// Intialize window.
 	window.head_index_pointer_val = 0;
 	window.tail_index_pointer_val = 0;
-
 	for (i = 0; i < WINDOW_SIZE; i++) {
 		window.back_end_window[i].seq_num = -1;
 	}
@@ -76,8 +81,7 @@ int main(int argc, char *argv[]) {
 	remoteServAddr.sin_port = htons(atoi(argv[2]));      //sets port to network byte order
 	remoteServAddr.sin_addr.s_addr = inet_addr(argv[1]); //sets remote IP address
 	printf("%s: sending data to '%s:%s' \n", argv[0], argv[1], argv[2]);
-	
-	
+
 	//multiple sockets that are size of window
 	//send data into each socket
 	//call select after all data is originally sent
@@ -85,56 +89,75 @@ int main(int argc, char *argv[]) {
 	
 	// Initial Send
 	count = 0;
-
 	strcpy(this_packet.chunk, "Sending crap for our shit to see if shit is fucked.");
 	int offset = 0;
 	int num_available_slots = 0;
-	LAR = 0;
+	int LAR = -1; 
+	int LFS = -1; // TODO
 
 	// Read in window size worth of data and put it into the window
-	for(i=0; i<WINDOW_SIZE;i++) {
+	/*for(i=0; i<WINDOW_SIZE;i++) {
 		offset = i - window.back_end_window[window.head_index_pointer_val].seq_num;
 		put(offset, this_packet);
-	}
-
+	}*/
+	
+	//read and send while there's an open space
 
 	while(1) {
-		this_packet.seq_num = count;
-			
-		//Cycle through window
-			//send anything in the window 	
-		for(i=window.head_index_pointer_val; i<abs(window.head_index_pointer_val - window.tail_index_pointer_val); i++) {
-			// Send packet if exists
-			if(window.back_end_window[i].seq_num != -1) {
-				sendto_(sd, (void *)&window.back_end_window[i], sizeof(struct Packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
-			}
-		}
+		this_packet.seq_num = count;	
+		// Cycle through window
+		// Send anything in the window
+		// Read in a chunk
+		sendto_(sd, (void *)&this_packet, sizeof(struct Packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr)); 	
+		offset = this_packet.seq_num - window.back_end_window[window.head_index_pointer_val].seq_num;
+		put(offset, this_packet);
 		FD_SET(sd, &rdfs); // Everything is in the pipe
 
-		//find a socket that's free and send to it
+
+		//find if a socket has data in it and receive from it
 		select_value = select(sd+1, &rdfs, 0, 0, &tv);
-		while(select_value != 0) {
-			// THERE'S FUCKING DATA!
+		if(select_value > 0) {
 			// Look for ACK
 			nbytes = recvfrom(sd, &ACK, sizeof(ACK), 0, (struct sockaddr *) &remoteServAddr, (socklen_t*) sizeof(&remoteServAddr));
-			
+			//Calculate a difference between last ACK and current ACK
+
 			// If this is the correct ACK.
-			if(ACK.seq_num == LAR+1) {
-				//Get rid of old packet
-				delete_current_head();
+			if(ACK.seq_num >= LAR+1) {
+				LAR = ACK.seq_num;
+				//Get rid of all old packets less than ACK.seq_num
+				for(i=0; i<WINDOW_SIZE; i++) {
+					// Send packet if exists
+					if(window.back_end_window[i].seq_num <= ACK.seq_num) {
+						delete_current_head();
+						print_current_values();
+						count++;
+					}
+				}
+				
 				//Read in new packet - TODO
 				//Store new packet
 				offset = this_packet.seq_num - window.back_end_window[window.head_index_pointer_val].seq_num;
 				put(offset, this_packet);
+				printf("%d, Nbytes: %d, ACK: %d\n",select_value, nbytes, ACK.seq_num);
 			}
-			printf("%d, Nbytes: %d, ACK: %d\n",select_value, nbytes, ACK.seq_num);
-			select_value = select(sd+1, &rdfs, 0, 0, &tv);
+			else // Not correct ACK
+			{
+				//Do nothing
+			}
+			FD_CLR(sd, &rdfs);
+			
 		}
-		FD_CLR(sd, &rdfs);
-		else { // A timeout occured.
-			sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+		else { // A timeout occured - resend WHOLE window
+			for(i=0; i<WINDOW_SIZE; i++) {
+				// Send packet if exists
+				if(window.back_end_window[i].seq_num != -1) {
+					sendto_(sd, (void *)&window.back_end_window[i], sizeof(struct Packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+					client_log(log_file, "Resend", window.back_end_window[i].seq_num, get_free_slots(), LAR, LFS);
+				}
+			}
+			FD_CLR(sd, &rdfs);
+			// TODO - reset timeout
 		}
-		
 	}
 	
 // We have a window which contains WINDOWSIZE number of frames
@@ -175,6 +198,7 @@ int main(int argc, char *argv[]) {
 		// resend all packets
 	// }
 	//read_file_into_memory("wordlst.txt");
+	fclose(log_file);
 
 }
 
@@ -218,12 +242,8 @@ read_file_into_memory(char* filename) {
 		//sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
 
 	}
-	
-
-
-
-
 	fclose(file_pointer);
+
 	//return full_file;
 }
 

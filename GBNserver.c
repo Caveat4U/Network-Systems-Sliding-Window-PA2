@@ -65,37 +65,10 @@ int main(int argc, char *argv[]) {
 		window.back_end_window[i].seq_num = -1;
 	}
 	
-	
-	/*Wait up to TIMEOUT ms TODO - check if usec is microsec and convert */
-	/*tv.tv_sec = 5;
-	tv.tv_usec = TIMEOUT;
-	int count; 
-	count = 0;
-	while(1) {
-		int val = select(1, &rdfs, 0, 0, &tv);	
-		printf("The value of select() is %d at %d\n", val, count);
-		count++;
-		
-	}*/
-	/*while(1) {
-		nbytes = recvfrom(sd, &recvmsg, sizeof(recvmsg), 0, (struct sockaddr *) &cliAddr, &cliLen);
-		if(nbytes > 0) { 
-			// Send ACK
-			ACK.seq_num = recvmsg.seq_num;
-			nbytes = sendto_(sd, (void*)&ACK, sizeof(ACK),0, (struct sockaddr *) &cliAddr, sizeof(cliLen));
-			break; 
-		}
-	}*/
-
-	/* Respond using sendto_ in order to simulate dropped packets */
-	//char response[] = "respond this";
-	
-	
 	// LAF = Largest Acceptable Frame - top bound of window
 	// LFR = Last Frame Received (Server Side) - 1 frame before our window bottom bound
 	// LFS = Last Frame Sent (Client side)
 	
-	//int i; // Simple iterator for later
 	int LAF = WINDOW_SIZE-1;
 	int LFR = -1;
 	
@@ -103,20 +76,13 @@ int main(int argc, char *argv[]) {
 	// We have a window which contains WINDOWSIZE number of frames
 	// We have each frame containing a Packet struct
 	
-	// Suppose window size of 4 packets
-	// Suppose rather than using mod we instead sort
-	//if the value is in our window
-		// look at slot 0
-		// if the slot[0] sequence number > than packet.seq_num?
-			//
-	
 	int offset = 0;
 	//FILE* file_out;
-	//fopen(file_out, "w+");
+	//file_out = fopen(file_name, "w+");
 	while (1) {
 		// Listen
 		nbytes = recvfrom(sd, &packet, sizeof(packet), 0, (struct sockaddr *) &cliAddr, &cliLen);
-		//printf("%d %s Nbytes: %d\n", packet.seq_num, packet.chunk, nbytes);
+		printf("%d %s Nbytes: %d\n", packet.seq_num, packet.chunk, nbytes);
 		// If we got something useful
 		if (nbytes > 0) {
 			// if packet is in our acceptable frame
@@ -133,20 +99,27 @@ int main(int argc, char *argv[]) {
 						// Get rid of ALL recieved packets in order
 						while(get_current_head().seq_num != -1) {
 							// Set ACK.
-							ACK.seq_num = get_current_head.seq_num;
+							ACK.seq_num = get_current_head().seq_num;
+							sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
 							delete_current_head();
 							LFR++;
 							LAF++;	
 						}
 					}
+					else //Not the lowest
+					{
+						// Repeat last successful ACKed frame - LFR
+						ACK.seq_num = LFR;
+						sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
+					}
 				}
 				else { //- NOT IN FRAME - CRAP
 					// It's shit. Discard.
 					ACK.seq_num = LFR;
+					sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
 					// Send ACK for LFR
 				}
 			}
-			sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
 
 			
 			//TODO - if EOF was received - handle me differently above...where?

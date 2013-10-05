@@ -45,6 +45,16 @@ exists(struct Packet this_packet) {
 	return 0;
 }
 
+int
+get_free_slots() {
+	int i, count;
+	for (i=0; i<WINDOW_SIZE; i++) {
+		if(window.back_end_window[i].seq_num == -1) {
+			count++;
+		}
+	}
+	return count;
+}
 /*int
 main() {
 	//x = curr.seq - head.seq 
