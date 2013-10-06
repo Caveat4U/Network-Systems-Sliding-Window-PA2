@@ -65,13 +65,13 @@ int main(int argc, char *argv[]) {
 	
 	/* Wait up to TIMEOUT ms TODO - check if usec is microsec and convert */
 	tv.tv_sec = 5;
-	tv.tv_usec = 0;
+	tv.tv_usec = TIMEOUT * 100;
 	
 	// Intialize window.
 	window.head_index_pointer_val = 0;
 	window.tail_index_pointer_val = 0;
 	for (i = 0; i < WINDOW_SIZE; i++) {
-		window.back_end_window[i].seq_num = 0;
+		window.back_end_window[i].seq_num = -1;
 	}
 
 	/* get server IP address (input must be IP address, not DNS name) */
@@ -93,13 +93,7 @@ int main(int argc, char *argv[]) {
 	int offset = 0;
 	int num_available_slots = 0;
 	int LAR = -1; 
-	int LFS = -1; // TODO
-
-	// Read in window size worth of data and put it into the window
-	/*for(i=0; i<WINDOW_SIZE;i++) {
-		offset = i - window.back_end_window[window.head_index_pointer_val].seq_num;
-		put(offset, this_packet);
-	}*/
+	int LFS = -1; 
 	
 	//read and send while there's an open space
 	char chunk[MAX_FILE_CHUNK_SIZE];
@@ -125,7 +119,7 @@ int main(int argc, char *argv[]) {
 	// Keep going until LAR is at last spot.
 	while(LAR <= num_chunks) {
 		// Set the seq_num of this packet.
-		this_packet.seq_num = count;	
+		this_packet.seq_num = LAR+1;
 
 		// Get the chunk.
 		bzero(chunk, sizeof(chunk));
@@ -148,47 +142,54 @@ int main(int argc, char *argv[]) {
 		// Read in a chunk
 		sendto_(sd, (void *)&this_packet, sizeof(struct Packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr)); 	
 		client_log(log_file, "Send", this_packet.seq_num, get_free_slots(), LAR, LFS);
-		offset = this_packet.seq_num - window.back_end_window[window.head_index_pointer_val].seq_num;
-		put(offset, this_packet);
+		LFS = this_packet.seq_num;
+		// If the current head isn't valid
+		if(get_current_head().seq_num == -1) {
+			put(0, this_packet);
+		}
+		else
+		{
+			offset = this_packet.seq_num - get_current_head().seq_num;
+			put(offset, this_packet);	
+		}
 		FD_SET(sd, &rdfs); // Everything is in the pipe
 
 
 		//find if a socket has data in it and receive from it
 		select_value = select(sd+1, &rdfs, 0, 0, &tv);
-		if(select_value > 0) {
+		if(select_value > 0 && FD_ISSET(sd, &rdfs)) {
 			// Look for ACK
 			nbytes = recvfrom(sd, &ACK, sizeof(ACK), 0, (struct sockaddr *) &remoteServAddr, (socklen_t*) sizeof(&remoteServAddr));
 			client_log(log_file, "Receive", ACK.seq_num, get_free_slots(), LAR, LFS);
 			//Calculate a difference between last ACK and current ACK
 
+			// If the last ACK was recieved.
+			if (ACK.last_packet == 1) {
+				fclose(file_pointer);
+				fclose(log_file);
+				exit(EXIT_SUCCESS);
+			}
 			// If this is the correct ACK.
 			if(ACK.seq_num > LAR) {
 				LAR = ACK.seq_num;
 				//Get rid of all old packets less than ACK.seq_num
 				for(i=0; i<WINDOW_SIZE; i++) {
-					// Send packet if exists
+					// Clear out anything old - cumulative ACKs mean server has received everything up to here.
 					if(window.back_end_window[i].seq_num <= ACK.seq_num) {
 						delete_current_head();
-						print_current_values();
-						count++;
+						//print_current_values();
 					}
 				}
-				LAR = this_packet.seq_num;
-				// If the last ACK was recieved.
-				if (ACK.last_packet == 1) {
-					fclose(file_pointer);
-					fclose(log_file);
-					exit(EXIT_SUCCESS);
-				}
+				//LAR = this_packet.seq_num;
 			}
 			else // Not correct ACK
 			{
 				//Do nothing
 			}
 			FD_CLR(sd, &rdfs);
-			
 		}
 		else { // A timeout occured - resend WHOLE window
+			printf("A timeout occurred.\n");
 			for(i=0; i<WINDOW_SIZE; i++) {
 				// Send packet if exists
 				if(window.back_end_window[i].seq_num != -1) {
@@ -196,8 +197,9 @@ int main(int argc, char *argv[]) {
 					client_log(log_file, "Resend", window.back_end_window[i].seq_num, get_free_slots(), LAR, LFS);
 				}
 			}
+			//Reset the timer
 			FD_CLR(sd, &rdfs);
-			// TODO - reset timeout
+			tv.tv_usec = TIMEOUT*100;
 		}
 	}
 	

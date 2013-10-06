@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 	window.tail_index_pointer_val = 0;
 
 	for (i = 0; i < WINDOW_SIZE; i++) {
-		window.back_end_window[i].seq_num = 0;
+		window.back_end_window[i].seq_num = -1;
 	}
 	
 	// LAF = Largest Acceptable Frame - top bound of window
@@ -92,16 +92,24 @@ int main(int argc, char *argv[]) {
 	while (1) {
 		// Listen
 		nbytes = recvfrom(sd, &packet, sizeof(packet), 0, (struct sockaddr *) &cliAddr, &cliLen);
-		server_log(log_file, "Recieve", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
-		printf("%d %s Nbytes: %d\n", packet.seq_num, packet.chunk, nbytes);
+		server_log(log_file, "Recieve", packet.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
+		//printf("%d %s Nbytes: %d\n", packet.seq_num, packet.chunk, nbytes);
 		// If we got something useful
 		if (nbytes > 0) {
 			// if packet is in our acceptable frame
 			if (packet.seq_num <= LAF && packet.seq_num > LFR) {
-				// If the frame isn't set - invalid packet found.
-				if(exists(packet)) {
-					offset = packet.seq_num - window.back_end_window[window.head_index_pointer_val].seq_num;
-					put(offset, packet);
+				// If the packet isn't in our data structure.
+				if(!exists(packet)) {
+					// If the current head isn't valid
+					if(get_current_head().seq_num == -1) {
+						put(0, packet);
+					}
+					else
+					{
+						offset = packet.seq_num - get_current_head().seq_num;
+						put(offset, packet);	
+					}
+					
 					if(packet.seq_num == LFR + 1) {
 						// Move the window
 						// Get rid of ALL recieved packets in order
@@ -111,28 +119,35 @@ int main(int argc, char *argv[]) {
 						while(get_current_head().seq_num != -1) {
 							// Set ACK.
 							ACK.seq_num = get_current_head().seq_num;
-							sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
-							server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
+							
+							//sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
+							//server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
+							
 							// Write out what we have in the head of window - our leftmost frame
 							// If it's the last packet, handle it differently.
 							if(get_current_head().last_packet == 1) {
-								printf("%d %s\n", get_current_head().seq_num, get_current_head().chunk);
+								//printf("%d %s\n", get_current_head().seq_num, get_current_head().chunk);
 								fwrite(&get_current_head().chunk[0], get_current_head().remainder, 1, file_out);
-								ACK.seq_num = LFR;
+								//ACK.seq_num = LFR;
+								ACK.last_packet = 1;
+								ACK.remainder = get_current_head().remainder;
 								sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
-								server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
+								server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, get_current_head().seq_num, LAF);
 								delete_current_head();
 								fclose(log_file);
 								fclose(file_out);
 								exit(EXIT_SUCCESS);
 							}
 							else { // If it's NOT the last packet.
-								printf("%d %s\n", get_current_head().seq_num, get_current_head().chunk);
+								//printf("%d %s\n", get_current_head().seq_num, get_current_head().chunk);
 								fwrite(&get_current_head().chunk[0], MAX_FILE_CHUNK_SIZE, 1, file_out);
+								//ACK.seq_num = LFR;
+								sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
+								server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, get_current_head().seq_num, LAF);
 								delete_current_head();
 							}
 							LFR = ACK.seq_num;
-							LAF++;
+							LAF = ACK.seq_num + WINDOW_SIZE;
 						}
 					}
 					else //Not the lowest
@@ -143,7 +158,7 @@ int main(int argc, char *argv[]) {
 						server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
 					}
 				}
-				else { //- NOT IN FRAME - CRAP
+				else { // Duplicate packet.
 					// It's shit. Discard.
 					ACK.seq_num = LFR;
 					sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
