@@ -171,7 +171,7 @@ int main(int argc, char *argv[]) {
 				exit(EXIT_SUCCESS);
 			}
 			// If this is the correct ACK.
-			if(ACK.seq_num > LAR) {
+			if(ACK.seq_num >= LAR) {
 				LAR = ACK.seq_num;
 				//Get rid of all old packets less than ACK.seq_num
 				for(i=0; i<WINDOW_SIZE; i++) {
@@ -194,6 +194,7 @@ int main(int argc, char *argv[]) {
 		}
 		else { // A timeout occured - resend WHOLE window
 			printf("A timeout occurred with ACK %d and LAR %d.\n", ACK.seq_num, LAR);
+			
 			int biggest_seq = -1;
 			for(i=0; i<WINDOW_SIZE; i++) {
 				// Send packet if exists
