@@ -48,6 +48,7 @@ exists(struct Packet this_packet) {
 int
 get_free_slots() {
 	int i, count;
+	count = 0;
 	for (i=0; i<WINDOW_SIZE; i++) {
 		if(window.back_end_window[i].seq_num == -1) {
 			count++;

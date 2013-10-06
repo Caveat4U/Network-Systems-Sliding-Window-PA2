@@ -155,16 +155,21 @@ int main(int argc, char *argv[]) {
 						// Repeat last successful ACKed frame - LFR
 						ACK.seq_num = LFR;
 						sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
-						server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
+						server_log(log_file, "Resend", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
 					}
 				}
 				else { // Duplicate packet.
 					// It's shit. Discard.
 					ACK.seq_num = LFR;
 					sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
+					server_log(log_file, "Resend", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
 					// Send ACK for LFR
 				}
+				fprintf(stderr, "Current ACK is: %d\n", ACK.seq_num);
 			}
+		}
+		else {
+			printf("\n\n\n\nNBYTES 0\n\n\n\n");
 		}
 	}
 	

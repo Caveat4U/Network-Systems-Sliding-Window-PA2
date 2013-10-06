@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
 	//FD_SET(sd, &rdfs);
 	
 	/* Wait up to TIMEOUT ms TODO - check if usec is microsec and convert */
-	tv.tv_sec = 5;
+	tv.tv_sec = 0;
 	tv.tv_usec = TIMEOUT * 100;
 	
 	// Intialize window.
@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
 		FD_SET(sd, &rdfs); // Everything is in the pipe
 
 
-		//find if a socket has data in it and receive from it
+		//find if a socket has data in it and we can receive from it
 		select_value = select(sd+1, &rdfs, 0, 0, &tv);
 		if(select_value > 0 && FD_ISSET(sd, &rdfs)) {
 			// Look for ACK
@@ -186,19 +186,28 @@ int main(int argc, char *argv[]) {
 			{
 				//Do nothing
 			}
-			FD_CLR(sd, &rdfs);
+			if(FD_ISSET(sd, &rdfs)) {
+				FD_CLR(sd, &rdfs);	
+			}
+			
 		}
 		else { // A timeout occured - resend WHOLE window
-			printf("A timeout occurred.\n");
+			printf("A timeout occurred with ACK %d and LAR %d.\n", ACK.seq_num, LAR);
 			for(i=0; i<WINDOW_SIZE; i++) {
 				// Send packet if exists
 				if(window.back_end_window[i].seq_num != -1) {
+					//print_current_values();
 					sendto_(sd, (void *)&window.back_end_window[i], sizeof(struct Packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+					LAR = window.back_end_window[window.tail_index_pointer_val].seq_num;
 					client_log(log_file, "Resend", window.back_end_window[i].seq_num, get_free_slots(), LAR, LFS);
+					
 				}
 			}
 			//Reset the timer
-			FD_CLR(sd, &rdfs);
+			if(FD_ISSET(sd, &rdfs)) {
+				FD_CLR(sd, &rdfs);	
+			}
+			tv.tv_sec = 0;
 			tv.tv_usec = TIMEOUT*100;
 		}
 	}
@@ -208,49 +217,4 @@ int main(int argc, char *argv[]) {
 // We have a timer for each frame
 // Read in the first chunks from the file
 
-}
-
-
-/* Reads a file into active memory. */
-/* Possible Alternative - as we read the file, we send the file...gross... */
-char*
-read_file_into_memory(char* filename) {
-	char chunk[MAX_FILE_CHUNK_SIZE];
-	FILE *file_pointer;
-
-	bzero(chunk, sizeof(chunk));
-
-	file_pointer = fopen(filename, "r");
-	if (file_pointer == NULL)
-	{
-	  fprintf(stderr, "Cannot open input file %s! Sucks to be you nerd...\n", filename);
-	  exit(EXIT_FAILURE);
-	}
-	
-	int count=0;
-	int i, file_pos, num_chunks, remainder;
-	fseek(file_pointer, 0, SEEK_END);
-	num_chunks = floor((float)(ftell(file_pointer) / MAX_FILE_CHUNK_SIZE));
-	printf("%d", num_chunks);
-	
-	remainder = ftell(file_pointer) % MAX_FILE_CHUNK_SIZE;
-	
-	// Will send everything EXCEPT FOR the file remainder
-	for(i = 0; i < num_chunks; i++) {
-		bzero(chunk, sizeof(chunk));
-		// Set it back to the start.
-		rewind(file_pointer);
-		file_pos = i * MAX_FILE_CHUNK_SIZE;
-		fseek(file_pointer, file_pos, SEEK_CUR);
-		fread(chunk, MAX_FILE_CHUNK_SIZE, 1, file_pointer);
-		printf("CHUNK: %s\n\n", chunk);
-
-		//strcpy(this_packet.chunk ,chunk);
-		//this_packet.seq_num = i;
-		//sendto_(sd, (void *)&this_packet, sizeof(this_packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
-
-	}
-	fclose(file_pointer);
-
-	//return full_file;
 }
