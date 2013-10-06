@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
 								//ACK.seq_num = LFR;
 								ACK.last_packet = 1;
 								ACK.remainder = get_current_head().remainder;
-								sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
+								sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr), log_file);
 								server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, get_current_head().seq_num, LAF);
 								delete_current_head();
 								fclose(log_file);
@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
 								//printf("%d %s\n", get_current_head().seq_num, get_current_head().chunk);
 								fwrite(&get_current_head().chunk[0], MAX_FILE_CHUNK_SIZE, 1, file_out);
 								//ACK.seq_num = LFR;
-								sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
+								sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr), log_file);
 								server_log(log_file, "Send", ACK.seq_num, get_free_slots(), LFR, get_current_head().seq_num, LAF);
 								delete_current_head();
 							}
@@ -154,15 +154,15 @@ int main(int argc, char *argv[]) {
 					{
 						// Repeat last successful ACKed frame - LFR
 						ACK.seq_num = LFR;
-						sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
-						server_log(log_file, "Resend", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
+						sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr), log_file);
+						server_log(log_file, "Resend1", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
 					}
 				}
 				else { // Duplicate packet.
 					// It's shit. Discard.
 					ACK.seq_num = LFR;
-					sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr));
-					server_log(log_file, "Resend", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
+					sendto_(sd, (void*)&ACK, sizeof(ACK), 0, (struct sockaddr *) &cliAddr, (socklen_t)sizeof(cliAddr), log_file);
+					server_log(log_file, "Resend2", ACK.seq_num, get_free_slots(), LFR, packet.seq_num, LAF);
 					// Send ACK for LFR
 				}
 				fprintf(stderr, "Current ACK is: %d\n", ACK.seq_num);

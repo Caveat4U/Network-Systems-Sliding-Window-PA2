@@ -20,6 +20,7 @@
 #include "window_storage.h"
 #include "log.h"
 
+
 char* read_file_into_memory(char* filename);
 
 
@@ -140,7 +141,7 @@ int main(int argc, char *argv[]) {
 		// Cycle through window
 		// Send anything in the window
 		// Read in a chunk
-		sendto_(sd, (void *)&this_packet, sizeof(struct Packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr)); 	
+		sendto_(sd, (void *)&this_packet, sizeof(struct Packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr), log_file); 	
 		client_log(log_file, "Send", this_packet.seq_num, get_free_slots(), LAR, LFS);
 		LFS = this_packet.seq_num;
 		// If the current head isn't valid
@@ -193,16 +194,22 @@ int main(int argc, char *argv[]) {
 		}
 		else { // A timeout occured - resend WHOLE window
 			printf("A timeout occurred with ACK %d and LAR %d.\n", ACK.seq_num, LAR);
+			int biggest_seq = -1;
 			for(i=0; i<WINDOW_SIZE; i++) {
 				// Send packet if exists
 				if(window.back_end_window[i].seq_num != -1) {
 					//print_current_values();
-					sendto_(sd, (void *)&window.back_end_window[i], sizeof(struct Packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
-					LAR = window.back_end_window[window.tail_index_pointer_val].seq_num;
+					sendto_(sd, (void *)&window.back_end_window[i], sizeof(struct Packet), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr), log_file);
 					client_log(log_file, "Resend", window.back_end_window[i].seq_num, get_free_slots(), LAR, LFS);
-					
+					if(biggest_seq < window.back_end_window[i].seq_num) {
+						biggest_seq = window.back_end_window[i].seq_num;
+					}
 				}
 			}
+			if(biggest_seq > LAR) {
+				LAR = biggest_seq;	
+			}
+			
 			//Reset the timer
 			if(FD_ISSET(sd, &rdfs)) {
 				FD_CLR(sd, &rdfs);	
